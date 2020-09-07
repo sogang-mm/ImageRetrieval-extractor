@@ -2,7 +2,7 @@ from torchvision.transforms import transforms as trn
 from PIL import Image
 import torch
 import os
-from Module.dummy.model import Dummy
+from Module.mobilenet_avg_part1.model import MobileNet_AVG_PART1
 from datetime import datetime,timedelta
 
 class Extractor:
@@ -12,7 +12,9 @@ class Extractor:
         code_path = os.path.dirname(os.path.abspath(__file__))
         self.device_id = int(os.environ['NVIDIA_USED_DEVICE_ID'])
         self.result = None
-        self.model = Dummy().to(self.device_id)
+        self.model = MobileNet_AVG_PART1().to(self.device_id)
+        ckpt=torch.load('/workspace/Module/mobilenet_avg_part1/mobilenet_avg.pth')
+        self.model.load_state_dict(ckpt['model_state_dict'],strict=False)
         self.model.eval()
 
     @torch.no_grad()
@@ -29,7 +31,7 @@ class Extractor:
         input_img = transform(img)
         start=datetime.now()
         feat = self.model(input_img.unsqueeze(0).to(self.device_id)).cpu()
-        extract_time = datetime.now() - start
+        extract_time=datetime.now()-start
         torch.save(feat, save_to)
         result = {'extractor': self.model.__class__.__name__,
                   'image': image_path,
