@@ -16,12 +16,14 @@ import numpy as np
 
 import skimage.io
 import cv2
-from datetime import datetime,timedelta
+
+
+
 
 class Extractor:
     model = None
     result = None
-    path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.dirname(os.path.abspath('/workspace/Module/main.py'))
 
     def __init__(self):
         # TODO
@@ -31,9 +33,7 @@ class Extractor:
         self.result = None
 
         tf_conf = tf.ConfigProto(device_count={'GPU': self.device_id}, log_device_placement=False)
-        tf_conf.gpu_options.per_process_gpu_memory_fraction=0.3
-        # tf_conf.gpu_options.allow_growth =True
-
+        tf_conf.gpu_options.allow_growth=True
         KK.set_session(tf.Session(config=tf_conf))
 
         MODEL_DIR = os.path.join(self.path, 'logs')
@@ -46,9 +46,6 @@ class Extractor:
         self.model.eval()
         print("Load SiameseNet model : {} .... ok".format(SIAMESENET_MODEL_PATH))
 
-        if not os.path.exists(COCO_MODEL_PATH):
-            utils.download_trained_weights(COCO_MODEL_PATH)
-            print('download..............')
 
         self._MaskRCNN_class_names = ['person']
         self.MASK_RCNN = modellib.MaskRCNN(mode="inference", model_dir=MODEL_DIR, config=InferenceConfig())
@@ -65,37 +62,32 @@ class Extractor:
 
     def segmentation(self, image_path):
         image = skimage.io.imread(image_path)
-        start = datetime.now()
         result = self.MASK_RCNN.detect([image], verbose=True)[0]
-        seg_time = datetime.now() - start
+
         seg = visualize.display_instances2(image_path, result['rois'], result['masks'], result['class_ids'],
                                            self._MaskRCNN_class_names, result['scores'])
 
-        return seg,seg_time
+        return seg
 
     @torch.no_grad()
-    def inference_by_path(self, image_path, save_to):
-        # TODO
-        #   - Inference using image path
+    def extract(self, images):
+        features = []
+        for img_path in images:
+            print(img_path)
+            seg = self.segmentation(img_path)
 
-        seg,seg_time = self.segmentation(image_path)
-        extract_time = seg_time
+            input_img = self.transform(Image.fromarray(cv2.cvtColor(seg, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(
+                self.device_id)
+            dummy1 = torch.zeros([1, 3, 224, 224]).to(self.device_id)
+            dummy2 = torch.zeros([1, 3, 224, 224]).to(self.device_id)
 
-        input_img = self.transform(Image.fromarray(cv2.cvtColor(seg, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(self.device_id)
-        dummy1 = torch.zeros([1, 3, 224, 224]).to(self.device_id)
-        dummy2 = torch.zeros([1, 3, 224, 224]).to(self.device_id)
-        start = datetime.now()
-        feat, _, _ = self.model(input_img, dummy1, dummy2)
-        extract_time += (datetime.now() - start)
-
-        torch.save(feat.cpu(), save_to)
-        result = {'extractor': self.model.__class__.__name__,
-                  'image': image_path,
-                  'save': save_to,
-                  'extract_time': extract_time.total_seconds()
-                  }
-
-        return result
+            feat, _, _ = self.model(input_img, dummy1, dummy2)
+            features.append(feat.cpu())
+        features = np.concatenate(features)
+        np.save('features.npy', features)
 
 
 
+images=np.char.add('/dataset/',np.load('/dataset/images/fashion2-list.npy'))
+extractor=Extractor()
+extractor.extract(images)
