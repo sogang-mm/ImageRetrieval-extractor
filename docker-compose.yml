@@ -2,7 +2,7 @@ version: '2.3'
 
 services:
   main:
-    container_name: "retrieval_extractor_dummy"
+    container_name: "retrieval_extractor_resnet50_rmac"
     build:
       context: ./
       dockerfile: Dockerfile
@@ -11,16 +11,10 @@ services:
     env_file:
       - "docker-compose-env/main.env"
       - "docker-compose-env/db.env"
-    volumes:
-      - type: volume
-        source: nfs_shared
-        target: /nfs_shared
-        volume:
-          nocopy: true
     expose:
       - "8000"
     ports:
-      - "38000:8000"
+      - "38010:8000"
     ipc: host
     stdin_open: true
     tty: true
@@ -30,15 +24,14 @@ services:
     links:
       - extractor_db
 
-
   extractor_db:
-    container_name: "retrieval_extractor_dummy_db"
-    image: library/mysql:8.0.21
+    container_name: "retrieval_extractor_resnet50_rmac_db"
+    image: mysql:8.0.21
     restart: always
-    expose:
-      - "3306"
     env_file:
       - docker-compose-env/db.env
+    expose:
+      - "3306"
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       timeout: 20s

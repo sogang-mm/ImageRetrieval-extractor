@@ -2,7 +2,7 @@ from torchvision.transforms import transforms as trn
 from PIL import Image
 import torch
 import os
-from Module.dummy.model import Dummy
+from Module.resnet50_rmac.model import Resnet50_RMAC
 from datetime import datetime,timedelta
 
 class Extractor:
@@ -12,7 +12,9 @@ class Extractor:
         code_path = os.path.dirname(os.path.abspath(__file__))
         self.device_id = int(os.environ['NVIDIA_USED_DEVICE_ID'])
         self.result = None
-        self.model = Dummy().to(self.device_id)
+        self.model = Resnet50_RMAC().to(self.device_id)
+        # ckpt=torch.load('/nfs_shared/ms/ImageRetrievalDemo/extractor/resnet50_rmac.pth')
+        # self.model.load_state_dict((ckpt['model_state_dict']))
         self.model.eval()
 
     @torch.no_grad()
@@ -29,12 +31,13 @@ class Extractor:
         input_img = transform(img)
         start=datetime.now()
         feat = self.model(input_img.unsqueeze(0).to(self.device_id)).cpu()
-        extract_time = datetime.now() - start
+        extract_time=datetime.now()-start
+
         torch.save(feat, save_to)
         result = {'extractor': self.model.__class__.__name__,
                   'image': image_path,
                   'save': save_to,
-                  'extract_time': extract_time.total_seconds()
+                  'extract_time':extract_time.total_seconds()
                   }
 
         return result
